@@ -22,17 +22,18 @@ distribute (BinOp Times left right) =
       right' = distribute right
   in if isSum left'
      then case left' of
-          BinOp op a b -> --  (a 'op' b) * right ~> distribute $ (a * right) 'op' (b * right) :
-                          distribute (BinOp op (BinOp Times a right)
-                                               (BinOp Times b right))
+          BinOp op a b -> --  (a 'op' b) * right ~> (a * right) 'op' (b * right) :
+                          (BinOp op (distribute $ BinOp Times a right)
+                                    (distribute $ BinOp Times b right))
      else if isSum right'
           then case right' of
-               BinOp op a b -> --  left * (a 'op' b) ~> distribute $ (left * a) 'op' (left * b) :
-                               distribute (BinOp op (BinOp Times left a)
-                                                    (BinOp Times left b))
+               BinOp op a b -> --  left * (a 'op' b) ~> (left * a) 'op' (left * b) :
+                               (BinOp op (distribute $ BinOp Times left a)
+                                         (distribute $ BinOp Times left b))
           else (BinOp Times left' right')
 distribute (BinOp op left right) =
   BinOp op (distribute left) (distribute right)
+distribute (Neg e) = Neg (distribute e)
 distribute e = e
 
 
@@ -231,6 +232,7 @@ collectMonomials e | isMonomial e = [collectMonomial e]
                    -- (i.e. 'op' in the following is 'Plus'/'Minus'):
                    | otherwise    = case e of
                        (BinOp op a b) -> (collectMonomials a) ++ (collectMonomials b)
+                       (Neg _ ) -> undefined -- Negation should have been removed.
                        _ -> undefined
 
 
@@ -301,6 +303,7 @@ normalizeAllMonomials mono e | isMonomial e = mono e
                              | otherwise    = case e of
                                  (BinOp op a b) -> BinOp op (normalizeAllMonomials mono a)
                                                             (normalizeAllMonomials mono b)
+                                 (Neg _) -> undefined -- Negation should have been removed.
                                  _ -> undefined
 
 
@@ -310,12 +313,12 @@ normalizeAllMonomials mono e | isMonomial e = mono e
 
 normalizeAllMonomialsL :: Expr -> Expr
 normalizeAllMonomialsL = let normalize = normalizeAllMonomials normalizeMonomialExprL
-                         in normalize . leftAssoc . distribute
+                         in normalize . leftAssoc . distribute . removeNeg
 
 
 normalizeAllMonomialsR :: Expr -> Expr
 normalizeAllMonomialsR = let normalize = normalizeAllMonomials normalizeMonomialExprR
-                         in normalize . rightAssoc . distribute
+                         in normalize . rightAssoc . distribute .removeNeg
 
 
 -- The following functions 'normalize{L|R}' normalize an entire polynomial 'e'.
@@ -324,7 +327,7 @@ normalizeAllMonomialsR = let normalize = normalizeAllMonomials normalizeMonomial
 
 normalizeL :: Expr -> Expr
 normalizeL e =
-  let e'    = (leftAssoc . distribute . removeMinus) e
+  let e'    = (leftAssoc . distribute . removeNeg . removeMinus) e
       m0:ms = ((map normalizeMonomial) . mergeMonomials . collectMonomials) e'
       initE = exprFromMonomialL m0
   in -- Since 'Minus' operators have been removed from the argument expression 'e',
@@ -334,7 +337,7 @@ normalizeL e =
 
 normalizeR :: Expr -> Expr
 normalizeR e =
-  let e'    = (rightAssoc . distribute . removeMinus) e
+  let e'    = (rightAssoc . distribute . removeNeg . removeMinus) e
       m0:ms = ((map normalizeMonomial) . mergeMonomials . collectMonomials) e'
       initE = exprFromMonomialR m0
   in -- Since 'Minus' operators have been removed from the argument expression 'e',

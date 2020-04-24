@@ -43,7 +43,8 @@ isMonomial (BinOp Minus _ _) = False
 isMonomial (BinOp Plus  _ _) = False
 isMonomial (BinOp Times a b) =
   isMonomial a && isMonomial b
-isMonomial _ = True
+isMonomial (Neg expr) = isMonomial expr 
+isMonomial _          = True
 
 
 prettyVariable :: String -> Doc
