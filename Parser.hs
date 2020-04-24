@@ -60,7 +60,7 @@ variableParser = do s <- idParser
 
 negParser :: Parsec String () Expr.Expr
 negParser = do charParser '-'
-               e <- exprParser
+               e <- atomParser
                return (Expr.Neg e)
 
 
